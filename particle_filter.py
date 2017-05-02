@@ -588,7 +588,7 @@ def create_particle_images(particles, radius=0.4):
 ############# utilities for drawing the particles, laser dots, and path ########################################
 
 ############ code for reading in data files ########################
-def read_map_file(filename="assignment-2-data/map.txt"):
+def read_map_file(filename="data/map.txt"):
     with open(filename) as map_file:
         map_lines_list = []
         counter = 0
