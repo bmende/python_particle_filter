@@ -604,7 +604,7 @@ def read_map_file(filename="data/map.txt"):
     return map_lines_list
 
 
-def read_data_file(filename="assignment-2-data/robot-data.log", restart=False):
+def read_data_file(filename="data/robot-data.log", restart=False):
 
     with open(filename) as data_log:
 
@@ -705,7 +705,7 @@ if __name__ == "__main__":
     time_str = lambda x: "timestamp = {time:.2f}".format(time=x)
     time_text = ax.text(0, 12, time_str(0.))
 
-    num_particle_str = lambda x: "{num_p}".format(num_p=x)
+    num_particle_str = lambda x: "number of particles = {num_p}".format(num_p=x)
     num_part_text = ax.text(35, 12, num_particle_str(0))
 
     data_log = read_data_file()
