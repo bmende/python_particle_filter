@@ -14,14 +14,14 @@ from random import uniform, gauss
 from itertools import chain
 
 
-max_particles = 750
-do_kld = False
-sample_method = "kld"
+max_particles = 300
+do_kld = True
+sample_method = "kld" if do_kld else "low_var"
 if not do_kld:
-    max_particles = 300
+    max_particles = 25
 
 
-bin_size = 0.1 # twenty centimeters
+bin_size = 0.1 # ten centimeters
 angular_bin_size = 0.07 # ~12 degrees
 num_samples_needed = 2
 min_samples = 10
@@ -42,10 +42,6 @@ class Particle(object):
         self.weight = 1 # uniform weights at beginning!
 
     def re_init(self, x, y, theta):
-        if do_kld:
-            x = uniform(50, 60)
-            y = uniform(50, 60)
-            theta = uniform(theta-PI/4, theta+PI/4)
         self.x = x
         self.y = y
         self.theta = theta
@@ -77,34 +73,6 @@ class Particle(object):
         self.x += delta_x*cos(self.theta) - delta_y*sin(self.theta)
         self.y += delta_x*sin(self.theta) + delta_y*cos(self.theta)
         self.theta = (self.theta + delta_theta) % (2*PI)
-
-    def predict_from_odometry_2(self, delta_x, delta_y, delta_theta):
-
-        # now lets get noise samples from zero-mean gaussian distributions. Define variance weights below
-        alpha_1 = 0.2 # radial-radial
-
-        alpha_2 = 0.1 # tang-tang
-        alpha_3 = 0.05 # tang-radial
-        alpha_4 = 0.05 # tang-angular
-
-        alpha_5 = 1 # orientation noise
-
-        radial_noise = gauss(0, alpha_1 * delta_x)# + gauss(0, alpha_2 * delta_phi)
-        tangential_noise = (gauss(0, alpha_2 * abs(delta_y)) +
-                            gauss(0, alpha_3 * abs(delta_x)) +
-                            gauss(0, alpha_4 * abs(delta_theta)))
-
-        theta_noise = gauss(0, alpha_5*abs(delta_theta))
-
-        delta_x += radial_noise
-        delta_y += tangential_noise
-        delta_theta += theta_noise
-
-        new_x = self.x + delta_x*cos(self.theta) - delta_y*sin(self.theta)
-        new_y = self.y + delta_x*sin(self.theta) + delta_y*cos(self.theta)
-        new_theta = (self.theta + delta_theta) % (2*PI)
-
-        return new_x, new_y, new_theta
 
 
 
@@ -313,13 +281,12 @@ class Particles:
 
                 relevant_lines.append(line)
 
-        #print len(relevant_lines)
         return relevant_lines
 
 
     def make_laser_updates(self, lasers):
 
-        if self.num_lasers == None: # do this stuff only once!
+        if self.num_lasers == None: # do this stuff only once! the laser datatype won't change during a run
             self.num_lasers = int(lasers[0])
             self.laser_min_theta = lasers[1]
             self.laser_theta_delta = lasers[3]
@@ -330,6 +297,7 @@ class Particles:
 
 
         if self.movement_was_zero:
+            # we don't need an expensive update if we know we didn't move
             return self.location()
 
 
@@ -338,8 +306,6 @@ class Particles:
 
         for p in self.particles:
             p.find_weight(self.laser_unit_mat, laser_magnitudes, relevant_map_lines)
-
-        #print "sum of weight", sum(p.weight for p in self.particles)
 
 
         # after finding the weights, we need to resample
@@ -439,7 +405,6 @@ class Particles:
                 if i >= self.num_particles:
                     i = 0
 
-        #print len(bins)
         self.particles = new_particles
         self.num_particles = len(self.particles)
 
@@ -466,7 +431,6 @@ class Particles:
 def re_initialize_particles_and_images(particles, particle_images, truth_particle, center_x, center_y, angle):
     """re init the particles and their images"""
 
-    print len(particles)
     assert len(particles) <= len(particle_images)
 
     particles.re_initialize(center_x, center_y, angle)
@@ -609,7 +573,6 @@ def read_data_file(filename="data/robot-data.log", restart=False):
     with open(filename) as data_log:
 
         for data_line in data_log:
-            #print "doing a thing"
             data_line = data_line.strip().split(" ")
             return_data = [data_line[0]]
             if data_line[0] == "I":
@@ -700,13 +663,13 @@ if __name__ == "__main__":
 
     import time
     loc_str = lambda x,y,theta: "center = {x:.3f},{y:.3f}, orientation = {theta:.3f}".format(x=x, y=y, theta=theta)
-    loc_text = ax.text(0, 15, loc_str(x, y, theta))
+    loc_text = ax.text(-9, 15, loc_str(x, y, theta))
 
     time_str = lambda x: "timestamp = {time:.2f}".format(time=x)
-    time_text = ax.text(0, 12, time_str(0.))
+    time_text = ax.text(26, 15, time_str(0.))
 
     num_particle_str = lambda x: "number of particles = {num_p}".format(num_p=x)
-    num_part_text = ax.text(35, 12, num_particle_str(0))
+    num_part_text = ax.text(49, 15, num_particle_str(0))
 
     data_log = read_data_file()
 
@@ -779,7 +742,6 @@ if __name__ == "__main__":
             num_part_text.set_text(num_particle_str(len(particles)))
 
         elif update_type == "I": # this is the initialization step
-            pass
             re_initialize_particles_and_images(particles, particle_images, truth_particle,
                                                next_data[1], next_data[2], next_data[3])
 
